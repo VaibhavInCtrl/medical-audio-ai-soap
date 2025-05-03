@@ -6,7 +6,10 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "setup": "node -e \"process.platform === 'win32' ? require('child_process').execSync('setup.bat', {stdio: 'inherit'}) : require('child_process').execSync('chmod +x setup.sh && ./setup.sh', {stdio: 'inherit'})\"",
+    "setup:mac": "chmod +x setup.sh && ./setup.sh",
+    "setup:win": "setup.bat"
   },
   "dependencies": {
     "@deepgram/sdk": "^3.12.1",
@@ -22,11 +25,11 @@
     "html-to-docx": "^1.8.0",
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.1",
-    "next": "15.3.1",
+    "next": "^15.3.1",
     "node-fetch": "^3.3.2",
     "openai": "^3.3.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
     "react-markdown": "^10.1.0",
     "react-quill": "^2.0.0",
     "remark-gfm": "^4.0.1"

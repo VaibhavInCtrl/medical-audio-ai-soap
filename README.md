@@ -1,48 +1,97 @@
-# Asha Health - AI Medical Scribe
+## Features
 
-This application provides an AI-powered medical scribe that can transcribe doctor-patient conversations and generate SOAP notes.
+- **Advanced Audio Recording**: Record high-quality audio directly in the browser
+- **Audio File Upload**: Support for various audio formats (WAV, MP3, MP4, WebM)
+- **Parallel Audio Processing**: Efficient chunked processing for faster transcription
+- **Speaker Diarization**: Automatically identify different speakers in the conversation
+- **Medical SOAP Note Generation**: AI-powered generation of structured medical notes
+- **Transcript Verification**: Quality checks to ensure accurate transcription
+- **Text Embeddings**: Vector embeddings for efficient text similarity search
+- **Interactive Hover Insights**: Contextual information displayed on hover for medical terms
 
-## Core Features
+## Quick Setup
 
-1. **Audio Recording**: Capture conversations using the device's microphone
-1. **Audio Upload**: Capture conversations using recorded audio clippings
-2. **SOAP Note Generation**: Automatically organize transcribed text into structured SOAP format
+For a quick setup, use our automated setup scripts:
 
-## Technology Stack
-
-- **Frontend**: Next.js, React, TailwindCSS, HeadlessUI
-- **Backend**: Next.js API Routes
-- **APIs**: Deepgram for speech-to-text
-
-## Setup Instructions
-
-1. **Clone the repository**
-
+### On macOS/Linux
 ```bash
-git clone https://github.com/VaibhavInCtrl/medical-audio-ai-soap
-cd asha-health
+# Make the script executable
+chmod +x setup.sh
+
+# Run the setup script
+./setup.sh
 ```
 
-2. **Install dependencies**
-
-```bash
-npm install
+### On Windows
+```
+# Run the setup script
+setup.bat
 ```
 
-3. **Set up environment variables**
+The script will automatically:
+1. Check for prerequisites (Node.js, npm, git)
+2. Install dependencies
+3. Configure environment variables 
+4. Build the project
+5. Start the development server
 
-Create a `.env.local` file in the root directory with the following content:
+## Manual Setup
 
-```
-DEEPGRAM_API_KEY=your_deepgram_api_key
-```
+If you prefer a manual setup:
 
-You can get a Deepgram API key by signing up at [Deepgram's website](https://deepgram.com).
+1. **Prerequisites**
+   - Node.js (v18.0.0 or higher)
+   - npm (usually comes with Node.js)
+   - git
 
-4. **Run the development server**
+2. **Installation**
+   ```bash
+   # Clone the repository (if you haven't already)
+   git clone https://github.com/your-username/asha-health.git
+   cd asha-health
 
-```bash
-npm run dev
-```
+   # Install dependencies
+   npm install
+   ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the application.
+3. **Environment Configuration**
+   Create a `.env.local` file in the project root with:
+   ```
+   # Deepgram API Key
+   DEEPGRAM_API_KEY=your_deepgram_api_key
+
+   # Gemini API Key
+   GEMINI_API_KEY=your_gemini_api_key
+   ```
+
+4. **Development**
+   ```bash
+   # Start the development server
+   npm run dev
+   ```
+
+5. **Production Build**
+   ```bash
+   # Create a production build
+   npm run build
+
+   # Start the production server
+   npm start
+   ```
+
+## Usage
+
+1. Open the application in your browser (default: http://localhost:3000)
+2. Record audio using the "Start Recording" button or upload an audio file
+3. Wait for the transcription to process (larger files may take longer)
+4. Review the transcript with speaker diarization
+5. View the generated SOAP notes
+
+## Architecture
+
+The application uses:
+- Next.js for the frontend and API routes
+- Deepgram API for audio transcription
+- Gemini API for SOAP note generation
+- Custom audio processing service for efficient parallel chunk processing
+- Server-side proxy endpoints to handle API calls securely
