@@ -479,6 +479,16 @@ export async function transcribeAudioWithFixedSizeChunks(
     const batchPromises = batch.map((chunk, batchIndex) => {
       const index = i + batchIndex;
       
+      // Skip extremely small chunks that are likely to fail
+      if (chunk.size < 4 * 1024) {
+        console.warn(`Skipping chunk ${index + 1}/${chunks.length} because it's too small (${chunk.size} bytes)`);
+        return Promise.resolve({
+          index,
+          result: null,
+          error: new Error(`Chunk too small (${chunk.size} bytes)`)
+        });
+      }
+      
       return processChunk(chunk, index, chunks.length, transcribeWithOptions);
     });
     
@@ -545,6 +555,14 @@ export async function transcribeAudioWithFixedSizeChunks(
     }));
   });
   
+  if (failedChunks > 0) {
+    console.warn(`${failedChunks} out of ${chunks.length} chunks failed transcription`);
+    
+    if (failedChunks === chunks.length) {
+      throw new Error(`All ${chunks.length} chunks failed transcription. Check audio format and quality.`);
+    }
+  }
+  
   return {
     text: combinedText,
     fullResults: results.map(r => r.result),
@@ -564,22 +582,66 @@ async function processChunk(
   totalChunks: number,
   transcribeFunction: (blobOrBuffer: Blob | Buffer, options?: any, chunkId?: string) => Promise<any>
 ): Promise<ChunkTranscriptionResult> {
-  try {
-    console.log(`Starting transcription of fixed-size chunk ${index + 1}/${totalChunks} (${(chunk.size / (1024 * 1024)).toFixed(2)}MB)`);
-    
-    // Call the transcription function with the chunk
-    const result = await transcribeFunction(chunk, undefined, `${index + 1}/${totalChunks}`);
-    
-    console.log(`Successfully transcribed fixed-size chunk ${index + 1}/${totalChunks}`);
-    return { index, result };
-  } catch (error) {
-    console.error(`Error transcribing fixed-size chunk ${index + 1}/${totalChunks}:`, error);
-    return { 
-      index, 
-      result: { transcript: '', words: [] }, 
-      error: error instanceof Error ? error : new Error(String(error)) 
-    };
+  const MAX_RETRIES = 2;
+  let attempt = 0;
+  let lastError = null;
+  
+  while (attempt <= MAX_RETRIES) {
+    try {
+      if (attempt > 0) {
+        console.log(`Retry attempt ${attempt}/${MAX_RETRIES} for chunk ${index + 1}/${totalChunks}`);
+      }
+      
+      console.log(`Starting transcription of fixed-size chunk ${index + 1}/${totalChunks} (${(chunk.size / (1024 * 1024)).toFixed(2)}MB)`);
+      
+      // Short delay before retries to allow for potential temporary issues to resolve
+      if (attempt > 0) {
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+      }
+      
+      const chunkId = `chunk-${index + 1}-of-${totalChunks}-attempt-${attempt + 1}`;
+      const startTime = Date.now();
+      
+      // If chunk is too small, we might need to pad it or skip it
+      if (chunk.size < 4 * 1024) {
+        console.warn(`Chunk ${index + 1}/${totalChunks} is very small (${chunk.size} bytes), might cause transcription issues`);
+      }
+      
+      const result = await transcribeFunction(chunk, undefined, chunkId);
+      
+      const processingTime = Date.now() - startTime;
+      console.log(`Chunk ${index + 1}/${totalChunks} transcribed successfully in ${processingTime}ms`);
+      
+      return { index, result };
+    } catch (error: any) {
+      lastError = error;
+      console.error(`Chunk ${index + 1}/${totalChunks} transcription failed (attempt ${attempt + 1}/${MAX_RETRIES + 1}):`, error.message || error);
+      
+      // Check if this is a retryable error
+      const errorMsg = error.message || '';
+      const isRetryable = 
+        errorMsg.includes('Invalid data received') || 
+        errorMsg.includes('network') || 
+        errorMsg.includes('timeout') || 
+        errorMsg.includes('500') ||
+        errorMsg.includes('503');
+        
+      if (!isRetryable) {
+        console.log(`Non-retryable error for chunk ${index + 1}/${totalChunks}, giving up`);
+        break;
+      }
+      
+      attempt++;
+    }
   }
+  
+  // All retries failed, return error result
+  console.error(`All transcription attempts failed for chunk ${index + 1}/${totalChunks}`);
+  return { 
+    index, 
+    result: null, 
+    error: lastError || new Error(`Failed to transcribe chunk ${index + 1}/${totalChunks} after ${MAX_RETRIES + 1} attempts`)
+  };
 }
 
 /**
@@ -771,9 +833,13 @@ export async function splitAudioBlobIntoFixedSizeChunks(
     const audioBytes = new Uint8Array(arrayBuffer);
     const totalBytes = audioBytes.length;
     
-    // Calculate chunks based on fixed size
+    // Use a slightly smaller chunk size for the last chunk to avoid potential issues
+    // This prevents creating very small final chunks that might be invalid
     const chunkCount = Math.ceil(totalBytes / chunkSizeBytes);
     const chunks: Blob[] = [];
+    
+    // Ensure we have a minimum valid chunk size (at least 4KB)
+    const minValidChunkSize = 4 * 1024;
     
     console.log(`Splitting ${(totalBytes / (1024 * 1024)).toFixed(2)}MB audio into ${chunkCount} chunks of ~${(chunkSizeBytes / (1024 * 1024)).toFixed(2)}MB each`);
     
@@ -781,8 +847,34 @@ export async function splitAudioBlobIntoFixedSizeChunks(
     for (let i = 0; i < chunkCount; i++) {
       const start = i * chunkSizeBytes;
       const end = Math.min(start + chunkSizeBytes, totalBytes);
+      
+      // Skip chunks that are too small to be valid audio
+      if (end - start < minValidChunkSize && i < chunkCount - 1) {
+        console.warn(`Skipping chunk ${i+1}/${chunkCount} because it's too small (${end-start} bytes)`);
+        continue;
+      }
+      
       const chunkBytes = audioBytes.slice(start, end);
       chunks.push(new Blob([chunkBytes], { type: audioBlob.type || 'audio/webm' }));
+    }
+    
+    // Validate last chunk size, if it's too small, merge with previous chunk
+    const lastChunkIndex = chunks.length - 1;
+    if (lastChunkIndex > 0 && chunks[lastChunkIndex].size < minValidChunkSize) {
+      console.log(`Last chunk is too small (${chunks[lastChunkIndex].size} bytes), merging with previous chunk`);
+      
+      // Get the last two chunks
+      const secondLastChunk = await chunks[lastChunkIndex - 1].arrayBuffer();
+      const lastChunk = await chunks[lastChunkIndex].arrayBuffer();
+      
+      // Merge them
+      const mergedArray = new Uint8Array(secondLastChunk.byteLength + lastChunk.byteLength);
+      mergedArray.set(new Uint8Array(secondLastChunk), 0);
+      mergedArray.set(new Uint8Array(lastChunk), secondLastChunk.byteLength);
+      
+      // Replace the second last chunk with the merged one and remove the last chunk
+      chunks[lastChunkIndex - 1] = new Blob([mergedArray], { type: audioBlob.type || 'audio/webm' });
+      chunks.pop();
     }
     
     return chunks;
