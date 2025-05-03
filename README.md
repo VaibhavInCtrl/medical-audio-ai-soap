@@ -35,6 +35,25 @@ The script will automatically:
 4. Build the project
 5. Start the development server
 
+### API Keys Setup
+
+**IMPORTANT:** Before running the application, you need to set up the environment variables:
+
+1. Create a file named `.env.local` in the root directory of the project
+2. Open the `keys.txt` file that was provided in the email
+3. Copy the entire contents of `keys.txt` and paste them into your `.env.local` file
+4. Save the `.env.local` file
+
+```bash
+# Create .env.local file
+touch .env.local
+
+# Open the file and paste the contents from keys.txt provided in the email
+# The file contains the Deepgram API key and other required credentials
+```
+
+This step is crucial as the application requires these API keys to function properly.
+
 ## Manual Setup
 
 If you prefer a manual setup:

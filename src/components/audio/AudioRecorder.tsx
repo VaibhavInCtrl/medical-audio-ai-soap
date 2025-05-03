@@ -332,16 +332,58 @@ export default function AudioRecorder({
   const transcribeFullAudio = async (audioBlob: Blob) => {
     try {
       setProcessingProgress('Transcribing audio...');
-      
-      // Calculate optimal chunk size and concurrency based on audio blob size
-      let chunkSize = 1024 * 1024; // Default 1MB chunks
-      let concurrentRequests = 5; // Default concurrency
+      onTranscriptionStatusChange?.(true);
       
       const fileSizeMB = audioBlob.size / (1024 * 1024);
+      console.log(`Processing ${fileSizeMB.toFixed(2)}MB audio file`);
       
-      // Adjust settings based on file size
-      if (fileSizeMB < 3) {
-        // For small files (< 3MB), use smaller chunks but fewer concurrent requests
+      // Adjust chunk size and concurrency based on file size
+      let chunkSize = 1024 * 1024; // Default: 1MB chunks
+      let concurrentRequests = 5; // Default: 5 concurrent requests
+      
+      if (fileSizeMB < 5) {
+        // For smaller files (< 5MB), use direct transcription with no chunking
+        console.log(`File size (${fileSizeMB.toFixed(2)}MB) is small, using direct transcription`);
+        
+        // Use our parallel transcription function with useChunking=false
+        const data = await transcribeForAudioRecorder(audioBlob, {
+          useChunking: false, // Disable chunking for small files
+          deepgramOptions: {
+            model: 'nova-2',
+            language: 'en-US',
+            detect_language: true,
+            punctuate: true,
+            smart_format: true,
+            diarize: true,
+            utterances: true
+          }
+        });
+        
+        // Store the full Deepgram-formatted response
+        setTranscriptData(data);
+        
+        // Send the full data to the parent component if callback exists
+        if (onTranscriptDataReady) {
+          onTranscriptDataReady(data);
+        }
+        
+        // Extract transcript from the formatted response structure
+        const transcriptText = data.results?.channels[0]?.alternatives[0]?.transcript || '';
+        
+        if (transcriptText.trim()) {
+          setTranscript(transcriptText.trim());
+          setProcessingProgress('Generating SOAP notes...');
+          
+          // Generate SOAP notes after successful transcription
+          return transcriptText.trim();
+        } else {
+          throw new Error('No transcript was generated');
+        }
+      }
+      
+      // For larger files, optimize chunk size and concurrency
+      if (fileSizeMB < 10) {
+        // For medium files (5-10MB), use smaller chunks and fewer concurrent requests
         chunkSize = 512 * 1024; // 512KB chunks
         concurrentRequests = 3;
       } else if (fileSizeMB > 10) {

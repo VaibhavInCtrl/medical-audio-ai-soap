@@ -645,6 +645,40 @@ async function processChunk(
 }
 
 /**
+ * Directly sends the entire audio blob to the server for transcription
+ * Used as a fallback when chunk-based transcription fails
+ * 
+ * @param audioBlob The complete audio blob to transcribe
+ * @param options Deepgram transcription options
+ * @returns Promise resolving to transcription result
+ */
+async function transcribeFullAudio(audioBlob: Blob, options?: any): Promise<any> {
+  console.log(`Falling back to full audio transcription for ${(audioBlob.size / (1024 * 1024)).toFixed(2)}MB audio`);
+  
+  // Create a FormData object to send the audio
+  const formData = new FormData();
+  formData.append('audio', audioBlob);
+  
+  // Include options if provided
+  if (options) {
+    formData.append('options', JSON.stringify(options));
+  }
+  
+  // Send the request to the full transcription API endpoint
+  const response = await fetch('/api/transcribe', {
+    method: 'POST',
+    body: formData,
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Full transcription API error: ${response.status} ${errorText}`);
+  }
+  
+  return response.json();
+}
+
+/**
  * Transcribes audio using the Deepgram API with format matching the traditional API response
  * This function is specifically designed to work with the existing AudioRecorder component
  * 
@@ -659,19 +693,38 @@ export async function transcribeForAudioRecorder(
     concurrentRequests?: number;
     deepgramOptions?: any;
     chunkSizeBytes?: number;
+    useChunking?: boolean;
   } = {}
 ): Promise<any> {
   const {
     chunkDurationMs = 60000,
-    concurrentRequests = 5, // Increased from 3 to 5
+    concurrentRequests = 5,
     deepgramOptions,
-    chunkSizeBytes = 1024 * 1024 // 1MB default chunk size
+    chunkSizeBytes = 1024 * 1024, // 1MB default chunk size
+    useChunking = true // By default, use chunking for large files
   } = options;
+
+  // If chunking is disabled or audio is small enough (< 5MB), use direct transcription
+  if (!useChunking || audioBlob.size < 5 * 1024 * 1024) {
+    try {
+      console.log(`Using direct transcription for ${(audioBlob.size / (1024 * 1024)).toFixed(2)}MB audio`);
+      const result = await transcribeFullAudio(audioBlob, deepgramOptions);
+      return result;
+    } catch (error) {
+      console.error('Direct transcription failed:', error);
+      // If direct transcription was explicitly requested (useChunking=false), don't fall back
+      if (!useChunking) {
+        throw error;
+      }
+      // Otherwise continue to chunked transcription as fallback
+      console.log('Falling back to chunked transcription');
+    }
+  }
 
   console.log(`Transcribing audio (${(audioBlob.size / (1024 * 1024)).toFixed(2)} MB) with parallel processing using ${concurrentRequests} concurrent requests`);
   
   try {
-    // Use fixed-size chunk-based parallel transcription
+    // Try chunked transcription first
     const parallelResult = await transcribeAudioWithFixedSizeChunks(
       audioBlob,
       chunkSizeBytes,
@@ -681,16 +734,39 @@ export async function transcribeForAudioRecorder(
     
     if (parallelResult.failed > 0) {
       console.warn(`Warning: ${parallelResult.failed} of ${parallelResult.chunkCount} chunks failed transcription`);
+      
+      // If more than 25% of chunks failed, try the full transcription as fallback
+      if (parallelResult.failed / parallelResult.chunkCount > 0.25) {
+        console.log(`High failure rate (${parallelResult.failed}/${parallelResult.chunkCount}), attempting full audio transcription fallback`);
+        
+        try {
+          const fallbackResult = await transcribeFullAudio(audioBlob, deepgramOptions);
+          return fallbackResult;
+        } catch (fallbackError) {
+          console.error('Full audio transcription fallback also failed:', fallbackError);
+          // Continue with partial results from chunk transcription
+          console.log('Using partial results from chunk transcription');
+        }
+      }
     }
     
     // Restructure the results to match the format expected by AudioRecorder
-    // This adapts our parallel processing result to look like a standard Deepgram response
     const formattedResult = formatDeepgramResult(parallelResult);
     
     return formattedResult;
   } catch (error) {
     console.error('Error in parallel transcription:', error);
-    throw error;
+    
+    // Try the full audio transcription as fallback
+    try {
+      console.log('Chunk transcription failed completely, attempting full audio transcription fallback');
+      const fallbackResult = await transcribeFullAudio(audioBlob, deepgramOptions);
+      return fallbackResult;
+    } catch (fallbackError) {
+      console.error('Full audio transcription fallback also failed:', fallbackError);
+      // Re-throw the original error if fallback also fails
+      throw error;
+    }
   }
 }
 
