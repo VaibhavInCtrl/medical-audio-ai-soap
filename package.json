@@ -1,0 +1,47 @@
+{
+  "name": "asha-health",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@deepgram/sdk": "^3.12.1",
+    "@google/generative-ai": "^0.24.1",
+    "@headlessui/react": "^2.2.2",
+    "@tailwindcss/typography": "^0.5.16",
+    "@tiptap/extension-placeholder": "^2.11.9",
+    "@tiptap/react": "^2.11.9",
+    "@tiptap/starter-kit": "^2.11.9",
+    "diff": "^7.0.0",
+    "dotenv": "^16.5.0",
+    "html-pdf": "^3.0.1",
+    "html-to-docx": "^1.8.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^3.0.1",
+    "next": "15.3.1",
+    "node-fetch": "^3.3.2",
+    "openai": "^3.3.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-markdown": "^10.1.0",
+    "react-quill": "^2.0.0",
+    "remark-gfm": "^4.0.1"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
+    "@types/diff": "^7.0.2",
+    "@types/node": "^20.17.32",
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19",
+    "@types/uuid": "^10.0.0",
+    "eslint": "^9",
+    "eslint-config-next": "15.3.1",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}

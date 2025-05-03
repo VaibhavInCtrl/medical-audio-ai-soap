@@ -5,8 +5,8 @@ This application provides an AI-powered medical scribe that can transcribe docto
 ## Core Features
 
 1. **Audio Recording**: Capture conversations using the device's microphone
-2. **Real-time Transcription**: Convert speech to text using Deepgram's advanced speech-to-text API
-3. **SOAP Note Generation**: Automatically organize transcribed text into structured SOAP format
+1. **Audio Upload**: Capture conversations using recorded audio clippings
+2. **SOAP Note Generation**: Automatically organize transcribed text into structured SOAP format
 
 ## Technology Stack
 
@@ -19,7 +19,7 @@ This application provides an AI-powered medical scribe that can transcribe docto
 1. **Clone the repository**
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/VaibhavInCtrl/medical-audio-ai-soap
 cd asha-health
 ```
 
@@ -46,20 +46,3 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the application.
-
-## Project Structure
-
-- `src/app/page.tsx`: Main application page
-- `src/components/AudioRecorder.tsx`: Component for recording audio and getting transcription
-- `src/components/SoapNoteGenerator.tsx`: Component for generating SOAP notes from transcript
-- `src/app/api/transcribe/route.ts`: API route for Deepgram transcription
-
-## Future Enhancements
-
-1. Live streaming transcription for real-time feedback
-2. Integration with Electronic Health Record (EHR) systems
-3. Enhanced SOAP note generation with medical terminology recognition
-4. Patient data extraction (medications, allergies, etc.)
-5. Multi-language support
-# medical-audio-ai-soap
-# medical-audio-ai-soap
